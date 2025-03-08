@@ -13,7 +13,8 @@
   <img alt="letschecksmb" src="https://img.shields.io/github/languages/code-size/Shirshakhtml/basicrecon">
 
 </div>
-
+<br>
+<br>
 <p>Ensure the following tools are installed before running the script:</p>
     <ul>
         <li><code>nikto</code> - Web server scanner</li>
@@ -27,3 +28,5 @@
         <li><code>ffuf</code> - Fuzzing tool</li>
         <li><code>sublist3r</code> - Subdomain enumeration</li>
     </ul>
+
+ <p><strong>Note:</strong> Enter the target URL in the script before running it.</p>
