@@ -1,55 +1,50 @@
 #!/bin/bash
 
-# Define the target URL
+
 TARGET_URL="http://example.com"
 
-# Define the output directory
-OUTPUT_DIR="/path/to/output/directory"
 
-# Create the output directory if it doesn't exist
+domain=$(echo "$TARGET_URL" | sed -E 's|https?://||')
+OUTPUT_DIR="/path/to/output/directory"
 mkdir -p "$OUTPUT_DIR"
 
-# Perform a basic scan using Nikto
+
 nikto -h "$TARGET_URL" -output "$OUTPUT_DIR/nikto.txt"
-
-# Perform an Nmap scan to identify open ports and services
 nmap -sV -p- "$TARGET_URL" -oN "$OUTPUT_DIR/nmap.txt"
-
-# Perform a directory and file enumeration using Dirb
 dirb "$TARGET_URL" "$OUTPUT_DIR/dirb.txt"
-
-# Perform a SQL injection test using Sqlmap
 sqlmap -u "$TARGET_URL" --batch --output-dir="$OUTPUT_DIR/sqlmap"
-
-# Perform a cross-site scripting (XSS) test using Xsser
 xsser -u "$TARGET_URL" -o "$OUTPUT_DIR/xsser.html"
-
-# Perform a local file inclusion (LFI) test using LFISuite
 lfisuite -u "$TARGET_URL" -o "$OUTPUT_DIR/lfisuite.html"
-
-# Perform a remote file inclusion (RFI) test using RFI-LFIRF
 rfi-lfirf -u "$TARGET_URL" -o "$OUTPUT_DIR/rfi-lfirf.html"
-
-# Perform a basic scan using Nikto
-echo "Running Nikto scan..."
-nikto -h $TARGET_URL
-
-# Perform a vulnerability scan using OWASP ZAP
-echo "Running OWASP ZAP scan..."
 zap-cli --zap-path /usr/share/zaproxy/zap.sh --output /tmp/zap-report.html -t $TARGET_URL
-
-# Perform a vulnerability scan using Nmap
-echo "Running Nmap scan..."
-nmap -p 80 $TARGET_URL
-
-# Perform active reconnaissance with ffuf
-echo "Running active reconnaissance with ffuf..."
 ffuf -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -u $TARGET_URL/FUZZ
-
-# Perform passive reconnaissance with sublist3r
-echo "Running passive reconnaissance with sublist3r..."
 sublist3r -d $TARGET_URL -o /tmp/subdomains.txt
-
-# Find hidden or secret endpoints with ffuf
-echo "Finding hidden or secret endpoints with ffuf..."
 ffuf -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -u $TARGET_URL/FUZZ -e .html,.php,.asp,.aspx,.jsp,.txt,.js,.xml,.json,.sql -fs 404
+
+subfinder -d "$TARGET_URL" -all -o subdomains.txt
+echo "Resolving subdomains ..."
+wget https://raw.githubusercontent.com/proabiral/Fresh-Resolvers/master/resolvers.txt
+echo 8.8.8.8 >> trusted.txt
+echo 8.8.4.4 >> trusted.txt
+massdns -r resolvers.txt -t A -o S subdomains.txt -w resolved0.txt
+cat resolved0.txt | awk '{print $1}' | sed 's/\.$//' | sort -u | anew resolved.txt
+rm -rf resolved0.txt
+dnsx -l subdomains.txt -r resolvers.txt -a -resp -o resolved1.txt
+cat resolved1.txt | anew resolved.txt
+rm -rf resolved1.txt
+puredns resolve subdomains.txt -r resolvers.txt --resolvers-trusted trusted.txt | anew resolved2.txt
+cat resolved2.txt | anew resolved.txt 
+rm -rf resolved2.txt
+
+
+echo "HTTPX on resolved.txt ..."
+cat resolved.txt | httpx -sc -title  -td -fr -cname
+
+
+echo "IP Address Enumeration ..."
+cat resolved.txt | xargs -I {} -n 1 dig +short {} | xargs -n 1 -I {} whois -h whois.cymru.com {} | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}" | anew IPs.txt
+cat resolved.txt | dnsx -silent -a -resp-only | anew IPs.txt
+
+echo "Running Port Scanning"
+sudo nmap -iL IPs.txt -oN nmap-fullscan-ip.txt
+sudo nmap -iL resolved.txt -p0-65535 -vv -oN nmap-fullscan-subs.txt
